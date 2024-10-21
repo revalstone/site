@@ -2,21 +2,17 @@ from flask import Flask, request, send_file
 import requests
 import os
 from io import BytesIO
+import json
 
 app = Flask(__name__)
 
-# Константы
-REFRESH_TOKEN = os.getenv('OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF')  # Используем переменные окружения
-APP_KEY = os.getenv('p86rppkc8d7fslf')
-APP_SECRET = os.getenv('5sx8vbxpfmxdd8b')
+# Настройки
+REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF'
+APP_KEY = 'p86rppkc8d7fslf'
+APP_SECRET = '5sx8vbxpfmxdd8b'
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"  
-
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-@app.route('/')
-def index():
-    return "Приложение работает!"
 
 # Функция для получения нового access_token с помощью refresh_token
 def get_access_token():
@@ -31,6 +27,21 @@ def get_access_token():
     else:
         raise Exception(f"Ошибка обновления токена: {response.status_code} - {response.text}")
 
+# Функция для скачивания файла с Dropbox
+def download_from_dropbox(dropbox_path):
+    access_token = get_access_token()  # Получаем новый токен
+    url = "https://content.dropboxapi.com/2/files/download"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Dropbox-API-Arg": json.dumps({"path": dropbox_path}),
+    }
+    response = requests.post(url, headers=headers)
+    if response.status_code == 200:
+        return BytesIO(response.content)  # Возвращаем файл как поток данных
+    else:
+        raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
+
+# Функция для загрузки файлов на сервер
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -40,45 +51,62 @@ def upload_file():
     file_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(file_path)
 
-    return "Файл успешно загружен на сервер!", 200
+    print(f"Файл успешно загружен: {file.filename}")  # Логирование
+    return {"status": "success", "filename": file.filename}, 200
 
-@app.route('/download_file/<filename>', methods=['GET'])
-def download_file(filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    
-    if not os.path.exists(file_path):
-        return "Файл не найден", 404
-    
-    return send_file(file_path, as_attachment=True)
-
-# Функция для скачивания файла с Dropbox
-def download_from_dropbox(dropbox_path):
-    access_token = get_access_token()  # Получаем новый токен
-    url = "https://content.dropboxapi.com/2/files/download"
+# Функция для рекурсивной загрузки папок и файлов с Dropbox на сервер
+def download_and_upload_files(cloud_folder_path):
+    list_files_url = "https://api.dropboxapi.com/2/files/list_folder"
     headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Dropbox-API-Arg": f'{{"path": "{dropbox_path}"}}',  # Используем f-строку
+        "Authorization": f"Bearer {get_access_token()}",
+        "Content-Type": "application/json"
     }
-    response = requests.post(url, headers=headers)
-    if response.status_code == 200:
-        return BytesIO(response.content)  # Возвращаем файл как поток данных
-    else:
-        raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
+    data = json.dumps({"path": cloud_folder_path})
 
-# Маршрут для скачивания файла
-@app.route('/download', methods=['GET'])
-def download():
-    file_path = request.args.get('file_path')
-    if not file_path:
-        return "Не указан путь к файлу", 400
-    
-    try:
-        # Скачиваем файл с Dropbox
-        file_content = download_from_dropbox(file_path)
-        # Отправляем файл обратно клиенту как вложение
-        return send_file(file_content, as_attachment=True, download_name=os.path.basename(file_path))
-    except Exception as e:
-        return str(e), 500
+    response = requests.post(list_files_url, headers=headers, data=data)
+
+    if response.status_code == 200:
+        files = response.json().get("entries", [])
+        for file in files:
+            if file[".tag"] == "file":
+                cloud_file_path = file["path_lower"]
+                # Скачиваем файл
+                file_content = download_from_dropbox(cloud_file_path)
+                
+                # Загружаем файл на сервер
+                upload_file(file_content, file["name"])  # Имя файла
+                
+            elif file[".tag"] == "folder":
+                # Рекурсивно обрабатываем подкаталоги
+                download_and_upload_files(file["path_lower"])
+    else:
+        print(f"Ошибка при получении содержимого папки: {response.status_code} - {response.text}")
+
+# Проверка наличия загруженных файлов
+def check_uploaded_files(file_names):
+    uploaded_files = []
+    for file_name in file_names:
+        if os.path.exists(os.path.join(UPLOAD_FOLDER, file_name)):
+            uploaded_files.append(file_name)
+            print(f"Файл найден: {file_name}")
+        else:
+            print(f"Файл не найден: {file_name}")
+    return uploaded_files
+
+# Эндпоинт для загрузки папки
+@app.route('/download_and_upload', methods=['POST'])
+def handle_download_and_upload():
+    cloud_folder_path = request.json.get("cloud_folder_path")
+    if not cloud_folder_path:
+        return "Не указан путь к папке", 400
+
+    download_and_upload_files(cloud_folder_path)
+
+    # Здесь можно добавить логику проверки, если известны имена файлов
+    # file_names = [...]  # Укажи имена загруженных файлов для проверки
+    # check_uploaded_files(file_names)
+
+    return "Загрузка завершена!", 200
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
