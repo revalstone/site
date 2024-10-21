@@ -14,6 +14,12 @@ TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.route('/list_files', methods=['GET'])
+def list_files():
+    directory = 'episode_files'  # Укажите путь к директории, где находятся файлы
+    files = os.listdir(directory)
+    return jsonify(files)
+
 # Функция для получения нового access_token с помощью refresh_token
 def get_access_token():
     response = requests.post(TOKEN_URL, data={
