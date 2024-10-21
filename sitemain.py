@@ -5,6 +5,10 @@ from io import BytesIO
 
 app = Flask(__name__)
 
+@app.route('/')
+def index():
+    return "Приложение работает!"
+    
 REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF'
 
 APP_KEY = 'p86rppkc8d7fslf'
