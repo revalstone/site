@@ -14,6 +14,21 @@ TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return "Нет файла", 400
+    
+    file = request.files['file']
+    # Создайте нужную папку, если она не существует
+    directory = 'episode_files'  # Укажите путь к директории
+    os.makedirs(directory, exist_ok=True)
+
+    # Сохраните файл
+    file.save(os.path.join(directory, file.filename))
+    return "Файл успешно загружен", 200
+
+
 @app.route('/list_files', methods=['GET'])
 def list_files():
     directory = 'episode_files'  # Укажите путь к директории, где находятся файлы
