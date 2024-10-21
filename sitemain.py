@@ -3,6 +3,7 @@ import requests
 import os
 from io import BytesIO
 import json
+import zipfile
 
 app = Flask(__name__)
 
@@ -14,19 +15,31 @@ TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
         return "Нет файла", 400
     
     file = request.files['file']
+    
     # Создайте нужную папку, если она не существует
-    directory = 'episode_files'  # Укажите путь к директории
+    directory = 'episode_files'
     os.makedirs(directory, exist_ok=True)
 
     # Сохраните файл
-    file.save(os.path.join(directory, file.filename))
-    return "Файл успешно загружен", 200
+    zip_path = os.path.join(directory, file.filename)
+    file.save(zip_path)
+
+    # Распакуйте ZIP-файл
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(directory)
+    
+    # Удалите ZIP-файл после распаковки (по желанию)
+    os.remove(zip_path)
+
+    return "Файл успешно загружен и распакован", 200
 
 
 @app.route('/list_files', methods=['GET'])
@@ -62,12 +75,6 @@ def download_from_dropbox(dropbox_path):
     else:
         raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
 
-# Функция для загрузки файлов на сервер
-def upload_file(file_stream, filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    with open(file_path, 'wb') as f:
-        f.write(file_stream.read())
-    print(f"Файл успешно загружен: {filename}")  # Логирование
 
 # Функция для рекурсивной загрузки папок и файлов с Dropbox на сервер
 def download_and_upload_files(cloud_folder_path):
