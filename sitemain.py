@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, jsonify
 import requests
 import os
 from io import BytesIO
@@ -42,17 +42,11 @@ def download_from_dropbox(dropbox_path):
         raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
 
 # Функция для загрузки файлов на сервер
-@app.route('/upload_file', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return "Нет файла для загрузки", 400
-
-    file = request.files['file']
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(file_path)
-
-    print(f"Файл успешно загружен: {file.filename}")  # Логирование
-    return {"status": "success", "filename": file.filename}, 200
+def upload_file(file_stream, filename):
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    with open(file_path, 'wb') as f:
+        f.write(file_stream.read())
+    print(f"Файл успешно загружен: {filename}")  # Логирование
 
 # Функция для рекурсивной загрузки папок и файлов с Dropbox на сервер
 def download_and_upload_files(cloud_folder_path):
@@ -102,11 +96,7 @@ def handle_download_and_upload():
 
     download_and_upload_files(cloud_folder_path)
 
-    # Здесь можно добавить логику проверки, если известны имена файлов
-    # file_names = [...]  # Укажи имена загруженных файлов для проверки
-    # check_uploaded_files(file_names)
-
-    return "Загрузка завершена!", 200
+    return jsonify({"message": "Загрузка завершена!"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
