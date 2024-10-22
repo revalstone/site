@@ -18,33 +18,35 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
 @app.route('/upload', methods=['POST'])
+
 def upload_file():
     if 'file' not in request.files:
         return "Нет файла", 400
     
     file = request.files['file']
     
-    # Создайте нужную папку, если она не существует
-    directory = 'episode_files'
-    os.makedirs(directory, exist_ok=True)
-
-    # Сохраните файл
-    zip_path = os.path.join(directory, file.filename)
+    # Путь для сохранения ZIP-файла
+    zip_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(zip_path)
+
+    # Получаем имя папки для распаковки
+    extract_folder = os.path.join(UPLOAD_FOLDER, os.path.splitext(file.filename)[0])
+
+    # Создаем папку для распаковки, если она не существует
+    os.makedirs(extract_folder, exist_ok=True)
 
     # Распакуйте ZIP-файл
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(directory)
+        zip_ref.extractall(extract_folder)
     
-    # Удалите ZIP-файл после распаковки (по желанию)
+    # Удалите ZIP-файл после распаковки
     os.remove(zip_path)
 
     return "Файл успешно загружен и распакован", 200
 
-
 @app.route('/list_files', methods=['GET'])
 def list_files():
-    directory = 'episode_files'  # Укажите путь к директории, где находятся файлы
+    directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
     files = os.listdir(directory)
     return jsonify(files)
 
@@ -74,7 +76,6 @@ def download_from_dropbox(dropbox_path):
         return BytesIO(response.content)  # Возвращаем файл как поток данных
     else:
         raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
-
 
 # Функция для рекурсивной загрузки папок и файлов с Dropbox на сервер
 def download_and_upload_files(cloud_folder_path):
