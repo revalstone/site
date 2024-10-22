@@ -18,38 +18,28 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
 
-Чтобы удалить файл из директории на вашем сервере, вы можете создать новый эндпоинт в вашем Flask приложении, который будет обрабатывать запросы на удаление файлов. Вот как это можно сделать:
-
-Шаги по созданию эндпоинта для удаления файла
-Добавьте новый маршрут в ваше Flask приложение. Мы создадим маршрут /delete, который будет принимать имя файла и удалять его из папки episode_files.
-
-Проверьте, существует ли файл перед удалением. Это поможет избежать ошибок, если файл не найден.
-
-Вот пример кода для реализации этого функционала:
-
-python
-Копировать код
-from flask import Flask, request, jsonify
-import os
-
-app = Flask(__name__)
-
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/delete', methods=['POST'])
 def delete_file():
-    file_name = request.json.get("file_name")
+    data = request.json
+    file_name = data.get("file_name")
+
     if not file_name:
-        return jsonify({"error": "Не указано имя файла"}), 400
+        return jsonify({"error": "Имя файла не указано"}), 400
 
     file_path = os.path.join(UPLOAD_FOLDER, file_name)
 
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        return jsonify({"message": f"Файл '{file_name}' успешно удален"}), 200
-    else:
-        return jsonify({"error": f"Файл '{file_name}' не найден"}), 404
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"message": f"Файл {file_name} успешно удален"}), 200
+        else:
+            return jsonify({"error": "Файл не найден"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 @app.route('/upload', methods=['POST'])
