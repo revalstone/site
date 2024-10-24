@@ -112,6 +112,11 @@ def delete_file():
     else:
         return jsonify({"error": "Файл не найден"}), 404
 
+@app.route('/list_files', methods=['GET'])
+def list_files():
+    directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
+    files = os.listdir(directory)
+    return jsonify(files)
 # Запуск сервера
 if __name__ == '__main__':
     app.run(debug=True)
