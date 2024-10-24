@@ -104,7 +104,7 @@ def download_archive(archive_name):
     # Проверка наличия архива на сервере
     if not os.path.exists(archive_path):
         # Путь к архиву на Dropbox
-        dropbox_path = f"/{archive_name}"
+        dropbox_path = f"/episode_files/{archive_name}"
 
         # Попытка скачать архив с Dropbox
         if download_from_dropbox(dropbox_path, archive_path):
