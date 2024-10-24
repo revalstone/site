@@ -9,6 +9,7 @@ REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyM
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 
+archive_name = f"e{episode_number}s{season_number}.zip"
 dropbox_path = f"/episode_files/{archive_name}"
 
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
