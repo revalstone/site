@@ -41,10 +41,12 @@ def download_from_dropbox(file_path, local_path):
     if response.status_code == 200:
         with open(local_path, 'wb') as f:
             f.write(response.content)
+        print(f"Файл {file_path} успешно скачан с Dropbox.")
         return True
     else:
         print(f"Ошибка при скачивании из Dropbox: {response.status_code} - {response.text}")
         return False
+
 
 @app.route('/delete', methods=['POST'])
 def delete_file():
