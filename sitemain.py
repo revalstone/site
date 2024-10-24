@@ -77,15 +77,19 @@ def download_from_dropbox(file_path, local_path):
             "Authorization": f"Bearer {access_token}",
             "Dropbox-API-Arg": json.dumps({"path": file_path})
         }
-        response = requests.post(url, headers=headers)
-        print(f"Response от Dropbox: {response.status_code} - {response.text}")
-
-        response.raise_for_status()  # Если ответ не 200, вызовет исключение
-
-        with open(local_path, 'wb') as f:
-            f.write(response.content)
-        print(f"Файл {file_path} успешно скачан с Dropbox.")
-        return True
+        response = requests.post("https://content.dropboxapi.com/2/files/download", headers=headers)
+        
+        # Логирование статуса ответа
+        print(f"Response от Dropbox: {response.status_code}")
+        
+        if response.status_code == 200:
+            # Сохраняем содержимое файла на диск
+            with open(local_path, "wb") as f:
+                f.write(response.content)  # Используем .content для бинарных данных
+            return True
+        else:
+            print(f"Ошибка при скачивании из Dropbox: {response.status_code} - {response.content}")  # Логируем как бинарное
+            return False
     except Exception as e:
         print(f"Ошибка при скачивании из Dropbox: {str(e)}")
         return False
