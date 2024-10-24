@@ -124,8 +124,5 @@ def download_archive(archive_name):
     return send_file(archive_path, as_attachment=True)
 
 if __name__ == '__main__':
-    # Получаем новый access_token перед запуском сервера
-
-
     # Запускаем сервер
     app.run(debug=True)
