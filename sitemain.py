@@ -33,11 +33,11 @@ dropbox_path = f"/episode_files/{archive_name}"
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     access_token = get_access_token()
-        url = "https://content.dropboxapi.com/2/files/download"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Dropbox-API-Arg": json.dumps({"path": file_path})
-        }
+    url = "https://content.dropboxapi.com/2/files/download"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Dropbox-API-Arg": json.dumps({"path": file_path})
+    }
     response = requests.post(url, headers=headers)
     print(f"Response от Dropbox: {response.status_code} - {response.text}")
     
