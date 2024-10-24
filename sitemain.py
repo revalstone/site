@@ -9,6 +9,9 @@ REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyM
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 
+dropbox_path = f"/episode_files/{archive_name}"
+archive_name = f"e{episode_number}s{season_number}.zip"
+
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -29,8 +32,6 @@ def get_access_token():
     else:
         raise Exception(f"Ошибка обновления токена: {response.status_code} - {response.text}")
         
-dropbox_path = f"/episode_files/{archive_name}"
-archive_name = f"e{episode_number}s{season_number}.zip"
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     access_token = get_access_token()
