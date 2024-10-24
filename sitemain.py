@@ -50,7 +50,7 @@ def download_archive():
 
         # Если файл отсутствует на сервере, скачиваем его с Dropbox
         if not os.path.exists(archive_path):
-            dropbox_path = f"/episode_files/{archive_name}"
+            dropbox_path = f"/episode_files/e{episode_number}s{season_number}.zip"
             print(f"Попытка скачать архив с Dropbox по пути: {dropbox_path}")  # Логирование пути для скачивания
             if download_from_dropbox(dropbox_path, archive_path):
                 print(f"Архив {archive_name} успешно скачан с Dropbox.")
