@@ -37,6 +37,7 @@ def download_from_dropbox(file_path, local_path):
         "Dropbox-API-Arg": json.dumps({"path": file_path})
     }
     response = requests.post(url, headers=headers)
+    print(f"Response от Dropbox: {response.status_code} - {response.text}")
     
     if response.status_code == 200:
         with open(local_path, 'wb') as f:
