@@ -8,10 +8,11 @@ app = Flask(__name__)
 REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF'
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
+
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-DROPBOX_TOKEN = get_access_token()
+
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
@@ -33,7 +34,7 @@ dropbox_path = f"/episode_files/{archive_name}"
 def download_from_dropbox(file_path, local_path):
     url = "https://content.dropboxapi.com/2/files/download"
     headers = {
-        "Authorization": f"Bearer {DROPBOX_TOKEN}",
+        "Authorization": f"Bearer {get_access_token()}",
         "Dropbox-API-Arg": json.dumps({"path": file_path})
     }
     response = requests.post(url, headers=headers)
@@ -121,7 +122,7 @@ def download_archive(archive_name):
 
 if __name__ == '__main__':
     # Получаем новый access_token перед запуском сервера
-    DROPBOX_TOKEN = get_access_token()
+
 
     # Запускаем сервер
     app.run(debug=True)
