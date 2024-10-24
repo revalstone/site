@@ -11,7 +11,7 @@ APP_SECRET = '5sx8vbxpfmxdd8b'
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-DROPBOX_TOKEN = None  # Определяется при запуске
+DROPBOX_TOKEN = get_access_token()
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
