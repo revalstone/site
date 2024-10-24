@@ -5,15 +5,16 @@ import json
 from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
+
 REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF'
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
-UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
+UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов на сервере
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла 500 MB
 
 # Функция для получения нового access_token с помощью refresh_token
 def get_access_token():
@@ -28,6 +29,7 @@ def get_access_token():
     else:
         raise Exception(f"Ошибка обновления токена: {response.status_code} - {response.text}")
 
+# Маршрут для скачивания архива
 @app.route('/download_archive', methods=['GET'])
 def download_archive():
     season_number = request.args.get('season_number')
@@ -36,10 +38,11 @@ def download_archive():
     if not season_number or not episode_number:
         return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
 
-    # Определяем archive_name внутри функции
+    # Имя архива
     archive_name = f"e{episode_number}s{season_number}.zip"
     archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
 
+    # Если файл отсутствует на сервере, скачиваем его с Dropbox
     if not os.path.exists(archive_path):
         dropbox_path = f"/episode_files/{archive_name}"
         if download_from_dropbox(dropbox_path, archive_path):
@@ -48,7 +51,7 @@ def download_archive():
             return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Dropbox"}), 404
 
     return send_file(archive_path, as_attachment=True)
-    
+
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     access_token = get_access_token()
@@ -59,7 +62,7 @@ def download_from_dropbox(file_path, local_path):
     }
     response = requests.post(url, headers=headers)
     print(f"Response от Dropbox: {response.status_code} - {response.text}")
-    
+
     if response.status_code == 200:
         with open(local_path, 'wb') as f:
             f.write(response.content)
@@ -69,26 +72,7 @@ def download_from_dropbox(file_path, local_path):
         print(f"Ошибка при скачивании из Dropbox: {response.status_code} - {response.text}")
         return False
 
-
-@app.route('/delete', methods=['POST'])
-def delete_file():
-    data = request.json
-    file_name = data.get("file_name")
-
-    if not file_name:
-        return jsonify({"error": "Имя файла не указано"}), 400
-
-    file_path = os.path.join(UPLOAD_FOLDER, file_name)
-
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return jsonify({"message": f"Файл {file_name} успешно удален"}), 200
-        else:
-            return jsonify({"error": "Файл не найден"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+# Маршрут для загрузки файла на сервер
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -100,28 +84,34 @@ def upload_file():
     zip_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(zip_path)
 
-    # Получаем имя папки для распаковки
+    # Распакуем файл, если это ZIP-архив
     extract_folder = os.path.join(UPLOAD_FOLDER, os.path.splitext(file.filename)[0])
-
-    # Создаем папку для распаковки, если она не существует
     os.makedirs(extract_folder, exist_ok=True)
 
-    # Распакуйте ZIP-файл
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_folder)
-    
-    # Удалите ZIP-файл после распаковки
-    os.remove(zip_path)
+
+    os.remove(zip_path)  # Удаляем архив после распаковки
 
     return "Файл успешно загружен и распакован", 200
 
-@app.route('/list_files', methods=['GET'])
-def list_files():
-    directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
-    files = os.listdir(directory)
-    return jsonify(files)
+# Маршрут для удаления файла
+@app.route('/delete', methods=['POST'])
+def delete_file():
+    data = request.json
+    file_name = data.get("file_name")
 
+    if not file_name:
+        return jsonify({"error": "Имя файла не указано"}), 400
 
+    file_path = os.path.join(UPLOAD_FOLDER, file_name)
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return jsonify({"message": f"Файл {file_name} успешно удален"}), 200
+    else:
+        return jsonify({"error": "Файл не найден"}), 404
+
+# Запуск сервера
 if __name__ == '__main__':
-    # Запускаем сервер
     app.run(debug=True)
