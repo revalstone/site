@@ -74,5 +74,59 @@ def get_file(file_name):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+# Эндпоинт для загрузки архива
+@app.route('/download_archive/<string:archive_name>', methods=['GET'])
+def download_archive(archive_name):
+    """Возвращает запрошенный ZIP-архив."""
+    archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
+    if os.path.exists(archive_path):
+        return send_file(archive_path, as_attachment=True)
+    else:
+        return jsonify({"error": "Архив не найден"}), 404
+
+
+# Эндпоинт для загрузки файла на сервер
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "Нет файла для загрузки"}), 400
+
+    file = request.files['file']
+    
+    # Сохраняем файл на сервере
+    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(file_path)
+
+    return jsonify({"message": "Файл успешно загружен"}), 200
+
+
+# Эндпоинт для удаления файла
+@app.route('/delete', methods=['POST'])
+def delete_file():
+    data = request.json
+    file_name = data.get("file_name")
+
+    if not file_name:
+        return jsonify({"error": "Имя файла не указано"}), 400
+
+    file_path = os.path.join(UPLOAD_FOLDER, file_name)
+
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"message": f"Файл {file_name} успешно удален"}), 200
+        else:
+            return jsonify({"error": "Файл не найден"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Эндпоинт для получения списка файлов
+@app.route('/list_files', methods=['GET'])
+def list_files():
+    files = os.listdir(UPLOAD_FOLDER)
+    return jsonify(files)
+
+
 if __name__ == '__main__':
     app.run(debug=True)
