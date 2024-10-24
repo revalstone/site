@@ -9,13 +9,9 @@ REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyM
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 
-archive_name = f"e{episode_number}s{season_number}.zip"
-dropbox_path = f"/episode_files/{archive_name}"
-
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
 UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
@@ -40,6 +36,7 @@ def download_archive():
     if not season_number or not episode_number:
         return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
 
+    # Определяем archive_name внутри функции
     archive_name = f"e{episode_number}s{season_number}.zip"
     archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
 
@@ -123,7 +120,6 @@ def list_files():
     directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
     files = os.listdir(directory)
     return jsonify(files)
-
 
 
 if __name__ == '__main__':
