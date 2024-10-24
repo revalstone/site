@@ -9,7 +9,6 @@ REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyM
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 
-archive_name = f"e{episode_number}s{season_number}.zip"
 dropbox_path = f"/episode_files/{archive_name}"
 
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"
@@ -104,24 +103,26 @@ def list_files():
     files = os.listdir(directory)
     return jsonify(files)
 
-@app.route('/download_archive/<string:archive_name>', methods=['GET'])
-def download_archive(archive_name):
-    """Возвращает запрошенный ZIP-архив или загружает его с Dropbox, если он отсутствует."""
+@app.route('/download_archive', methods=['GET'])
+def download_archive():
+    season_number = request.args.get('season_number')
+    episode_number = request.args.get('episode_number')
+
+    if not season_number or not episode_number:
+        return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
+
+    archive_name = f"e{episode_number}s{season_number}.zip"
     archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
 
-    # Проверка наличия архива на сервере
     if not os.path.exists(archive_path):
-        # Путь к архиву на Dropbox
         dropbox_path = f"/episode_files/{archive_name}"
-
-        # Попытка скачать архив с Dropbox
         if download_from_dropbox(dropbox_path, archive_path):
             print(f"Архив {archive_name} успешно скачан с Dropbox.")
         else:
             return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Dropbox"}), 404
 
-    # Если файл существует, отправляем его клиенту
     return send_file(archive_path, as_attachment=True)
+
 
 if __name__ == '__main__':
     # Запускаем сервер
