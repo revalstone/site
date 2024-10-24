@@ -27,7 +27,8 @@ def get_access_token():
         return response.json()["access_token"]
     else:
         raise Exception(f"Ошибка обновления токена: {response.status_code} - {response.text}")
-
+        
+dropbox_path = f"/episode_files/{archive_name}"
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     url = "https://content.dropboxapi.com/2/files/download"
