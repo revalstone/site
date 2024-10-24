@@ -45,9 +45,13 @@ def download_archive():
         archive_name = f"e{episode_number}s{season_number}.zip"
         archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
 
+        # Логирование пути к архиву
+        print(f"Проверка архива: {archive_path}")
+
         # Если файл отсутствует на сервере, скачиваем его с Dropbox
         if not os.path.exists(archive_path):
             dropbox_path = f"/episode_files/{archive_name}"
+            print(f"Попытка скачать архив с Dropbox по пути: {dropbox_path}")  # Логирование пути для скачивания
             if download_from_dropbox(dropbox_path, archive_path):
                 print(f"Архив {archive_name} успешно скачан с Dropbox.")
             else:
@@ -58,6 +62,7 @@ def download_archive():
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
 
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
