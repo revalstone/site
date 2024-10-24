@@ -31,7 +31,27 @@ def get_access_token():
         return response.json()["access_token"]
     else:
         raise Exception(f"Ошибка обновления токена: {response.status_code} - {response.text}")
-        
+
+@app.route('/download_archive', methods=['GET'])
+def download_archive():
+    season_number = request.args.get('season_number')
+    episode_number = request.args.get('episode_number')
+
+    if not season_number or not episode_number:
+        return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
+
+    archive_name = f"e{episode_number}s{season_number}.zip"
+    archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
+
+    if not os.path.exists(archive_path):
+        dropbox_path = f"/episode_files/{archive_name}"
+        if download_from_dropbox(dropbox_path, archive_path):
+            print(f"Архив {archive_name} успешно скачан с Dropbox.")
+        else:
+            return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Dropbox"}), 404
+
+    return send_file(archive_path, as_attachment=True)
+    
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     access_token = get_access_token()
@@ -104,25 +124,6 @@ def list_files():
     files = os.listdir(directory)
     return jsonify(files)
 
-@app.route('/download_archive', methods=['GET'])
-def download_archive():
-    season_number = request.args.get('season_number')
-    episode_number = request.args.get('episode_number')
-
-    if not season_number or not episode_number:
-        return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
-
-    archive_name = f"e{episode_number}s{season_number}.zip"
-    archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
-
-    if not os.path.exists(archive_path):
-        dropbox_path = f"/episode_files/{archive_name}"
-        if download_from_dropbox(dropbox_path, archive_path):
-            print(f"Архив {archive_name} успешно скачан с Dropbox.")
-        else:
-            return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Dropbox"}), 404
-
-    return send_file(archive_path, as_attachment=True)
 
 
 if __name__ == '__main__':
