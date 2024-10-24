@@ -50,18 +50,22 @@ def download_archive():
 
         # Если файл отсутствует на сервере, скачиваем его с Dropbox
         if not os.path.exists(archive_path):
-            dropbox_path = f"/episode_files/e{episode_number}s{season_number}.zip"
+            dropbox_path = f"/episode_files/{archive_name}"
             print(f"Попытка скачать архив с Dropbox по пути: {dropbox_path}")  # Логирование пути для скачивания
+
+            # Попытка скачать файл с Dropbox
             if download_from_dropbox(dropbox_path, archive_path):
                 print(f"Архив {archive_name} успешно скачан с Dropbox.")
             else:
                 return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Dropbox"}), 404
 
+        # Отправка файла клиенту
         return send_file(archive_path, as_attachment=True)
 
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
 
 
 # Функция для скачивания файла с Dropbox
