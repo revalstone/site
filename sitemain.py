@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import requests
 import os
 from io import BytesIO
@@ -12,67 +12,10 @@ REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyM
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
 TOKEN_URL = "https://api.dropbox.com/oauth2/token"  
-UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+CACHE_DIR = '/tmp/cache'  # Используем временную папку для кэширования
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
-
-
-UPLOAD_FOLDER = 'episode_files'  # Папка для загруженных файлов
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-@app.route('/delete', methods=['POST'])
-def delete_file():
-    data = request.json
-    file_name = data.get("file_name")
-
-    if not file_name:
-        return jsonify({"error": "Имя файла не указано"}), 400
-
-    file_path = os.path.join(UPLOAD_FOLDER, file_name)
-
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return jsonify({"message": f"Файл {file_name} успешно удален"}), 200
-        else:
-            return jsonify({"error": "Файл не найден"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return "Нет файла", 400
-    
-    file = request.files['file']
-    
-    # Путь для сохранения ZIP-файла
-    zip_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(zip_path)
-
-    # Получаем имя папки для распаковки
-    extract_folder = os.path.join(UPLOAD_FOLDER, os.path.splitext(file.filename)[0])
-
-    # Создаем папку для распаковки, если она не существует
-    os.makedirs(extract_folder, exist_ok=True)
-
-    # Распакуйте ZIP-файл
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_folder)
-    
-    # Удалите ZIP-файл после распаковки
-    os.remove(zip_path)
-
-    return "Файл успешно загружен и распакован", 200
-
-@app.route('/list_files', methods=['GET'])
-def list_files():
-    directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
-    files = os.listdir(directory)
-    return jsonify(files)
 
 # Функция для получения нового access_token с помощью refresh_token
 def get_access_token():
@@ -101,55 +44,35 @@ def download_from_dropbox(dropbox_path):
     else:
         raise Exception(f"Ошибка при скачивании: {response.status_code} {response.text}")
 
-# Функция для рекурсивной загрузки папок и файлов с Dropbox на сервер
-def download_and_upload_files(cloud_folder_path):
-    list_files_url = "https://api.dropboxapi.com/2/files/list_folder"
-    headers = {
-        "Authorization": f"Bearer {get_access_token()}",
-        "Content-Type": "application/json"
-    }
-    data = json.dumps({"path": cloud_folder_path})
+# Кэширование файла
+def cache_file(file_content, file_name):
+    local_path = os.path.join(CACHE_DIR, file_name)
+    with open(local_path, 'wb') as f:
+        f.write(file_content.getbuffer())  # Сохраняем поток данных в файл
+    return local_path
 
-    response = requests.post(list_files_url, headers=headers, data=data)
+# Проверка наличия файла в кэше
+def is_file_cached(file_name):
+    local_path = os.path.join(CACHE_DIR, file_name)
+    return os.path.exists(local_path), local_path
 
-    if response.status_code == 200:
-        files = response.json().get("entries", [])
-        for file in files:
-            if file[".tag"] == "file":
-                cloud_file_path = file["path_lower"]
-                # Скачиваем файл
-                file_content = download_from_dropbox(cloud_file_path)
-                
-                # Загружаем файл на сервер
-                upload_file(file_content, file["name"])  # Имя файла
-                
-            elif file[".tag"] == "folder":
-                # Рекурсивно обрабатываем подкаталоги
-                download_and_upload_files(file["path_lower"])
+# Эндпоинт для получения файла с кэшированием
+@app.route('/get-file/<path:file_name>', methods=['GET'])
+def get_file(file_name):
+    # Проверяем, есть ли файл в кэше
+    cached, local_path = is_file_cached(file_name)
+    
+    if cached:
+        return send_file(local_path)  # Возвращаем файл из кэша
     else:
-        print(f"Ошибка при получении содержимого папки: {response.status_code} - {response.text}")
-
-# Проверка наличия загруженных файлов
-def check_uploaded_files(file_names):
-    uploaded_files = []
-    for file_name in file_names:
-        if os.path.exists(os.path.join(UPLOAD_FOLDER, file_name)):
-            uploaded_files.append(file_name)
-            print(f"Файл найден: {file_name}")
-        else:
-            print(f"Файл не найден: {file_name}")
-    return uploaded_files
-
-# Эндпоинт для загрузки папки
-@app.route('/download_and_upload', methods=['POST'])
-def handle_download_and_upload():
-    cloud_folder_path = request.json.get("cloud_folder_path")
-    if not cloud_folder_path:
-        return "Не указан путь к папке", 400
-
-    download_and_upload_files(cloud_folder_path)
-
-    return jsonify({"message": "Загрузка завершена!"}), 200
+        # Если файла нет в кэше, загружаем его с Dropbox
+        dropbox_path = f'/{file_name}'  # Предполагаем, что путь в Dropbox такой же
+        try:
+            file_content = download_from_dropbox(dropbox_path)
+            local_path = cache_file(file_content, file_name)  # Сохраняем в кэш
+            return send_file(local_path)  # Возвращаем файл
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
