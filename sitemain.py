@@ -2,7 +2,7 @@ import os
 import requests
 import zipfile
 import json
-from flask import Flask, request, send_file, jsonify, send_from_directory
+from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
 
@@ -59,8 +59,10 @@ def download_archive():
             if not download_from_backblaze(b2_file_path, archive_path):
                 return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Backblaze B2"}), 404
 
-        # Отправка файла через send_from_directory
-        return send_from_directory(directory=UPLOAD_FOLDER, path=archive_name, as_attachment=True)
+        if not os.path.exists(archive_path):
+            return jsonify({"error": "Файл не найден после загрузки"}), 404
+
+        return send_file(archive_path, as_attachment=True)
 
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
@@ -81,11 +83,9 @@ def download_from_backblaze(file_path, local_path):
         print(f"Response от Backblaze B2: {response.status_code}")
         
         if response.status_code == 200:
-            # Сохраняем содержимое файла на диск и проверяем его размер
+            # Сохраняем содержимое файла на диск
             with open(local_path, "wb") as f:
                 f.write(response.content)
-            file_size = os.path.getsize(local_path)
-            print(f"Файл {local_path} скачан, размер: {file_size} байт")
             return True
         else:
             print(f"Ошибка при скачивании из Backblaze B2: {response.status_code} - {response.content.decode()}")
