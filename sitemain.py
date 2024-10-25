@@ -72,7 +72,7 @@ def download_from_dropbox(file_path, local_path):
             "Authorization": f"Bearer {access_token}",
             "Dropbox-API-Arg": json.dumps({"path": file_path})
         }
-        response = requests.post(url, headers=headers)
+        response = requests.post(url, headers=headers, timeout=60)  # Увеличение таймаута
 
         # Логирование статуса ответа
         print(f"Response от Dropbox: {response.status_code}")
