@@ -17,6 +17,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла 500 MB
 
+@app.route('/')
+def index():
+    return "Welcome to Revalstone!"
 # Функция для получения нового access_token с помощью refresh_token
 def get_access_token():
     try:
