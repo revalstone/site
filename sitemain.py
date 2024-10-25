@@ -59,10 +59,14 @@ def download_archive():
             if not download_from_backblaze(b2_file_path, archive_path):
                 return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Backblaze B2"}), 404
 
-        if not os.path.exists(archive_path):
+        # Проверка файла перед отправкой
+        if os.path.exists(archive_path):
+            file_size = os.path.getsize(archive_path)
+            print(f"Файл {archive_path} найден, готов к отправке. Размер файла: {file_size} байт")
+            return send_file(archive_path, as_attachment=True)
+        else:
+            print(f"Файл {archive_path} не найден после загрузки")
             return jsonify({"error": "Файл не найден после загрузки"}), 404
-
-        return send_file(archive_path, as_attachment=True)
 
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
@@ -83,9 +87,11 @@ def download_from_backblaze(file_path, local_path):
         print(f"Response от Backblaze B2: {response.status_code}")
         
         if response.status_code == 200:
-            # Сохраняем содержимое файла на диск
+            # Сохраняем содержимое файла на диск и проверяем его размер
             with open(local_path, "wb") as f:
                 f.write(response.content)
+            file_size = os.path.getsize(local_path)
+            print(f"Файл {local_path} скачан, размер: {file_size} байт")
             return True
         else:
             print(f"Ошибка при скачивании из Backblaze B2: {response.status_code} - {response.content.decode()}")
