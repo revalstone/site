@@ -6,6 +6,7 @@ from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
 
+# Установите ваши токены и ключи
 REFRESH_TOKEN = 'OQigtzF32QoAAAAAAAAAASFHVSGh-EGBSsBoVZn2YgKZ7ZBL0rzMIYOWXnVUuyMF'
 APP_KEY = 'p86rppkc8d7fslf'
 APP_SECRET = '5sx8vbxpfmxdd8b'
@@ -51,7 +52,7 @@ def download_archive():
         # Если файл отсутствует на сервере, скачиваем его с Dropbox
         if not os.path.exists(archive_path):
             dropbox_path = f"/episode_files/{archive_name}"
-            print(f"Попытка скачать архив с Dropbox по пути: {dropbox_path}")  # Логирование пути для скачивания
+            print(f"Попытка скачать архив с Dropbox по пути: {dropbox_path}")
 
             # Попытка скачать файл с Dropbox
             if download_from_dropbox(dropbox_path, archive_path):
@@ -66,8 +67,6 @@ def download_archive():
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
-
-
 # Функция для скачивания файла с Dropbox
 def download_from_dropbox(file_path, local_path):
     try:
@@ -77,8 +76,8 @@ def download_from_dropbox(file_path, local_path):
             "Authorization": f"Bearer {access_token}",
             "Dropbox-API-Arg": json.dumps({"path": file_path})
         }
-        response = requests.post("https://content.dropboxapi.com/2/files/download", headers=headers)
-        
+        response = requests.post(url, headers=headers)
+
         # Логирование статуса ответа
         print(f"Response от Dropbox: {response.status_code}")
         
@@ -88,7 +87,7 @@ def download_from_dropbox(file_path, local_path):
                 f.write(response.content)  # Используем .content для бинарных данных
             return True
         else:
-            print(f"Ошибка при скачивании из Dropbox: {response.status_code} - {response.content}")  # Логируем как бинарное
+            print(f"Ошибка при скачивании из Dropbox: {response.status_code} - {response.content.decode()}")  # Логируем как строку
             return False
     except Exception as e:
         print(f"Ошибка при скачивании из Dropbox: {str(e)}")
@@ -142,12 +141,17 @@ def delete_file():
         print(f"Ошибка при удалении файла: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
-
+# Маршрут для получения списка файлов
 @app.route('/list_files', methods=['GET'])
 def list_files():
-    directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
-    files = os.listdir(directory)
-    return jsonify(files)
+    try:
+        directory = UPLOAD_FOLDER  # Укажите путь к директории, где находятся файлы
+        files = os.listdir(directory)
+        return jsonify(files)
+    except Exception as e:
+        print(f"Ошибка при получении списка файлов: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
 # Запуск сервера
 if __name__ == '__main__':
     app.run(debug=True)
