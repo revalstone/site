@@ -95,42 +95,30 @@ def download_from_backblaze(file_path, local_path):
         return False
 
 # Функция для удаления файла на Backblaze B2
-def delete_from_backblaze(file_name):
+def delete_from_backblaze(file_path):
     try:
-        auth_token, api_url = get_b2_auth_data()  # Получаем токен авторизации и URL API
+        auth_token = get_b2_auth_data()
+        delete_url = f"{B2_API_URL}/b2api/v2/delete_file_version"
         
-        # Получаем fileId, который нужен для удаления файла
-        get_file_url = f"{api_url}/b2api/v2/b2_list_file_names"
-        params = {
-            "bucketId": B2_BUCKET_ID,
-            "startFileName": file_name,
-            "maxFileCount": 1
+        # Формируем данные для удаления
+        data = {
+            "fileName": file_path,
+            "bucketId": B2_BUCKET_ID  # Здесь нужно указать ID вашего бакета
         }
+        
         headers = {
-            "Authorization": auth_token
+            "Authorization": auth_token,
+            "Content-Type": "application/json"
         }
-        response = requests.post(get_file_url, headers=headers, json=params)
-        response_data = response.json()
 
-        if "files" not in response_data or not response_data["files"]:
-            print(f"Файл {file_name} не найден на Backblaze.")
-            return False
+        # Отправляем запрос на удаление
+        response = requests.post(delete_url, json=data, headers=headers, timeout=60)
 
-        file_id = response_data["files"][0]["fileId"]
-
-        # Удаляем файл с помощью API Backblaze
-        delete_url = f"{api_url}/b2api/v2/b2_delete_file_version"
-        delete_params = {
-            "fileId": file_id,
-            "fileName": file_name
-        }
-        delete_response = requests.post(delete_url, headers=headers, json=delete_params)
-
-        if delete_response.status_code == 200:
-            print(f"Файл {file_name} успешно удален с Backblaze B2.")
+        if response.status_code == 200:
+            print(f"Файл {file_path} удален успешно.")
             return True
         else:
-            print(f"Ошибка при удалении файла {file_name} с Backblaze B2: {delete_response.content.decode()}")
+            print(f"Ошибка при удалении файла с Backblaze B2: {response.status_code} - {response.content.decode()}")
             return False
     except Exception as e:
         print(f"Ошибка при удалении файла с Backblaze B2: {str(e)}")
@@ -142,11 +130,23 @@ def delete_file():
     if not file_path:
         return jsonify({"error": "File path is required"}), 400
 
-    # Удаление файла с Backblaze B2
-    if delete_from_backblaze(file_path):
-        return jsonify({"status": "File deleted"}), 200
-    else:
-        return jsonify({"error": "Failed to delete file"}), 500
+    # Указание полного пути к файлу
+    full_path = os.path.join("path/to/files", file_path)
+
+    # Проверка, существует ли файл локально
+    if os.path.exists(full_path):
+        try:
+            os.remove(full_path)
+            print(f"Локальный файл {full_path} удален.")
+        except Exception as e:
+            print(f"Ошибка при удалении локального файла: {str(e)}")
+            return jsonify({"error": "Failed to delete local file"}), 500
+    
+    # Попробуйте удалить файл из Backblaze B2
+    if not delete_from_backblaze(file_path):  # здесь передайте имя файла
+        return jsonify({"error": "Failed to delete file from Backblaze B2"}), 500
+
+    return jsonify({"status": "File deleted"}), 200
 
 # Запуск сервера
 if __name__ == '__main__':
