@@ -99,34 +99,41 @@ def download_from_backblaze(file_path, local_path):
 # Функция для удаления файла с Backblaze B2
 @app.route('/delete_file', methods=['DELETE'])
 def delete_file():
+    # Получаем file_id из параметров запроса
     file_id = request.args.get('file_id')
-    
+
     if not file_id:
-        return jsonify({"error": "Необходимо указать file_id"}), 400
+        return jsonify({"error": "file_id обязательно"}), 400
 
     try:
+        # Получаем токен авторизации
         auth_token = get_b2_auth_data()
-        delete_url = f"{B2_AUTH_URL}/b2api/v2/b2_delete_file_version"
+
+        # Формируем URL для удаления файла
+        delete_url = f"https://api.backblazeb2.com/b2api/v2/b2_delete_file_version"
+
+        # Создаем данные для запроса
+        data = {
+            "fileName": file_id.split('_')[2],  # Имя файла (необходимо извлечь из file_id)
+            "fileId": file_id
+        }
 
         headers = {
-            "Authorization": auth_token,
-            "Content-Type": "application/json"
+            "Authorization": auth_token
         }
 
-        data = {
-            "fileId": file_id,
-            "bucketId": BUCKET_ID
-        }
+        # Отправляем DELETE-запрос
+        response = requests.post(delete_url, json=data, headers=headers)
 
-        response = requests.post(delete_url, headers=headers, json=data)
-
-        if response.status_code == 204:  # 204 No Content
-            return jsonify({"message": "Файл успешно удалён"}), 204
+        if response.status_code == 200:
+            return jsonify({"message": "Файл успешно удален"}), 200
         else:
             return jsonify({"error": response.json()}), response.status_code
 
     except Exception as e:
-        return jsonify({"error": "Ошибка при удалении файла", "details": str(e)}), 500
+        print(f"Ошибка при удалении файла: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
 
 # Запуск сервера
 if __name__ == '__main__':
