@@ -94,6 +94,22 @@ def download_from_backblaze(file_path, local_path):
         print(f"Ошибка при скачивании из Backblaze B2: {str(e)}")
         return False
 
+@app.route('/delete_file', methods=['POST'])
+def delete_file():
+    file_path = request.json.get("file_path")
+    if not file_path:
+        return jsonify({"error": "File path is required"}), 400
+
+    # Указание полного пути к файлу
+    full_path = os.path.join("path/to/files", file_path)
+
+    # Проверка существования и удаления файла
+    if os.path.exists(full_path):
+        os.remove(full_path)
+        return jsonify({"status": "File deleted"}), 200
+    else:
+        return jsonify({"error": "File not found"}), 404
+
 # Остальные маршруты и функции остаются такими же, если они не зависят от Dropbox
 # Запуск сервера
 if __name__ == '__main__':
