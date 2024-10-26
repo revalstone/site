@@ -7,16 +7,16 @@ from flask import Flask, request, send_file, jsonify
 app = Flask(__name__)
 
 # Установите ваши токены и ключи для Backblaze B2
-B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # Ваш keyID
-B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # Ваш applicationKey
-B2_BUCKET_ID = 'Revalstone'  # Имя вашего bucket
+B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # keyID
+B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # applicationKey
+B2_BUCKET_ID = 'Revalstone'  # Имя bucket
 
 B2_AUTH_URL = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
 B2_DOWNLOAD_URL = None
 UPLOAD_FOLDER = 'episode_files'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла 500 MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла
 
 @app.route('/')
 def index():
@@ -94,23 +94,60 @@ def download_from_backblaze(file_path, local_path):
         print(f"Ошибка при скачивании из Backblaze B2: {str(e)}")
         return False
 
+# Функция для удаления файла на Backblaze B2
+def delete_from_backblaze(file_name):
+    try:
+        auth_token, api_url = get_b2_auth_data()  # Получаем токен авторизации и URL API
+        
+        # Получаем fileId, который нужен для удаления файла
+        get_file_url = f"{api_url}/b2api/v2/b2_list_file_names"
+        params = {
+            "bucketId": B2_BUCKET_ID,
+            "startFileName": file_name,
+            "maxFileCount": 1
+        }
+        headers = {
+            "Authorization": auth_token
+        }
+        response = requests.post(get_file_url, headers=headers, json=params)
+        response_data = response.json()
+
+        if "files" not in response_data or not response_data["files"]:
+            print(f"Файл {file_name} не найден на Backblaze.")
+            return False
+
+        file_id = response_data["files"][0]["fileId"]
+
+        # Удаляем файл с помощью API Backblaze
+        delete_url = f"{api_url}/b2api/v2/b2_delete_file_version"
+        delete_params = {
+            "fileId": file_id,
+            "fileName": file_name
+        }
+        delete_response = requests.post(delete_url, headers=headers, json=delete_params)
+
+        if delete_response.status_code == 200:
+            print(f"Файл {file_name} успешно удален с Backblaze B2.")
+            return True
+        else:
+            print(f"Ошибка при удалении файла {file_name} с Backblaze B2: {delete_response.content.decode()}")
+            return False
+    except Exception as e:
+        print(f"Ошибка при удалении файла с Backblaze B2: {str(e)}")
+        return False
+
 @app.route('/delete_file', methods=['POST'])
 def delete_file():
     file_path = request.json.get("file_path")
     if not file_path:
         return jsonify({"error": "File path is required"}), 400
 
-    # Указание полного пути к файлу
-    full_path = os.path.join("path/to/files", file_path)
-
-    # Проверка существования и удаления файла
-    if os.path.exists(full_path):
-        os.remove(full_path)
+    # Удаление файла с Backblaze B2
+    if delete_from_backblaze(file_path):
         return jsonify({"status": "File deleted"}), 200
     else:
-        return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": "Failed to delete file"}), 500
 
-# Остальные маршруты и функции остаются такими же, если они не зависят от Dropbox
 # Запуск сервера
 if __name__ == '__main__':
     app.run(debug=True)
