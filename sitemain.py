@@ -1,20 +1,18 @@
 import os
 import requests
-import zipfile
-import json
 from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
 
 # Токены и ключи для Backblaze B2
 B2_ACCOUNT_ID = 'e902e40d0449'
-BUCKET_ID = 'bucketId2ee970b25e84c05d90240419'  # ID
+BUCKET_ID = '2ee970b25e84c05d90240419'  # ID
 B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # keyID
 B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # applicationKey
 B2_BUCKET_NAME = 'Revalstone'  # Имя bucket
 
 B2_AUTH_URL = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
-B2_DOWNLOAD_URL = None
+B2_DOWNLOAD_URL = "https://f005.backblazeb2.com"
 UPLOAD_FOLDER = 'episode_files'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -48,27 +46,37 @@ def download_archive():
         if not season_number or not episode_number:
             return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
 
+        # Создаем имя архива
         archive_name = f"e{episode_number}s{season_number}.zip"
-        archive_path = os.path.join(UPLOAD_FOLDER, archive_name)
+        
+        # Формируем путь к архиву с учетом структуры папок
+        archive_path = os.path.join(UPLOAD_FOLDER, season_number, episode_number)
+        os.makedirs(archive_path, exist_ok=True)  # Создаем папку, если она не существует
+        archive_file_path = os.path.join(archive_path, archive_name)
 
-        print(f"Проверка архива: {archive_path}")
+        print(f"Проверка архива: {archive_file_path}")
 
-        if not os.path.exists(archive_path):
-            # Путь к файлу на Backblaze B2
-            b2_file_path = f"episode_files/{archive_name}"
+        # Проверяем, существует ли архив
+        if not os.path.exists(archive_file_path):
+            # Путь к файлу на Backblaze B2 с учетом новой структуры папок
+            b2_file_path = f"episode_files/{season_number}/{episode_number}/{archive_name}"
             print(f"Попытка скачать архив с Backblaze B2 по пути: {b2_file_path}")
 
-            if not download_from_backblaze(b2_file_path, archive_path):
+            # Скачиваем архив, если он не найден локально
+            if not download_from_backblaze(b2_file_path, archive_file_path):
                 return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Backblaze B2"}), 404
 
-        if not os.path.exists(archive_path):
+        # Проверяем, существует ли архив после загрузки
+        if not os.path.exists(archive_file_path):
             return jsonify({"error": "Файл не найден после загрузки"}), 404
 
-        return send_file(archive_path, as_attachment=True)
+        # Отправляем файл клиенту
+        return send_file(archive_file_path, as_attachment=True)
 
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
 
 # Функция для скачивания файла с Backblaze B2
 def download_from_backblaze(file_path, local_path):
@@ -95,44 +103,6 @@ def download_from_backblaze(file_path, local_path):
     except Exception as e:
         print(f"Ошибка при скачивании из Backblaze B2: {str(e)}")
         return False
-
-# Функция для удаления файла с Backblaze B2
-@app.route('/delete_file', methods=['DELETE'])
-def delete_file():
-    # Получаем file_id из параметров запроса
-    file_id = request.args.get('file_id')
-
-    if not file_id:
-        return jsonify({"error": "file_id обязательно"}), 400
-
-    try:
-        # Получаем токен авторизации
-        auth_token = get_b2_auth_data()
-
-        # Формируем URL для удаления файла
-        delete_url = f"https://api.backblazeb2.com/b2api/v2/b2_delete_file_version"
-
-        # Создаем данные для запроса
-        data = {
-            "fileName": file_id.split('_')[2],  # Имя файла (необходимо извлечь из file_id)
-            "fileId": file_id
-        }
-
-        headers = {
-            "Authorization": auth_token
-        }
-
-        # Отправляем DELETE-запрос
-        response = requests.post(delete_url, json=data, headers=headers)
-
-        if response.status_code == 200:
-            return jsonify({"message": "Файл успешно удален"}), 200
-        else:
-            return jsonify({"error": response.json()}), response.status_code
-
-    except Exception as e:
-        print(f"Ошибка при удалении файла: {str(e)}")
-        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
 
 # Запуск сервера
