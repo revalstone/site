@@ -115,6 +115,7 @@ def delete_from_backblaze(file_path):
         # Отправляем запрос на удаление
         response = requests.post(delete_url, json=data, headers=headers, timeout=60)
 
+        print(f"Попытка удалить файл с именем: {file_path}")  # Логирование
         if response.status_code == 200:
             print(f"Файл {file_path} удален успешно.")
             return True
@@ -124,6 +125,7 @@ def delete_from_backblaze(file_path):
     except Exception as e:
         print(f"Ошибка при удалении файла с Backblaze B2: {str(e)}")
         return False
+
 
 @app.route('/delete_file', methods=['POST'])
 def delete_file():
