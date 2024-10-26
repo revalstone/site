@@ -6,7 +6,8 @@ from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
 
-# Установите ваши токены и ключи для Backblaze B2
+# Токены и ключи для Backblaze B2
+B2_API_URL = "https://api.backblazeb2.com"  # URL API
 B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # keyID
 B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # applicationKey
 B2_BUCKET_ID = 'Revalstone'  # Имя bucket
