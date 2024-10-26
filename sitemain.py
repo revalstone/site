@@ -104,7 +104,7 @@ def delete_from_backblaze(file_path):
         # Формируем данные для удаления
         data = {
             "fileName": file_path,
-            "bucketId": B2_BUCKET_ID  # Здесь нужно указать ID вашего бакета
+            "bucketId": B2_BUCKET_ID
         }
         
         headers = {
