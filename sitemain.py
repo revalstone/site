@@ -10,7 +10,7 @@ app = Flask(__name__)
 B2_API_URL = "https://api.backblazeb2.com"  # URL API
 B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # keyID
 B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # applicationKey
-B2_BUCKET_ID = 'Revalstone'  # Имя bucket
+B2_BUCKET_NAME = 'Revalstone'  # Имя bucket
 
 B2_AUTH_URL = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
 B2_DOWNLOAD_URL = None
@@ -22,20 +22,6 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный
 @app.route('/')
 def index():
     return "Welcome to Revalstone!"
-
-# Функция для авторизации в Backblaze B2 и получения URL для загрузки файлов
-def get_b2_auth_data():
-    global B2_DOWNLOAD_URL
-    try:
-        auth_response = requests.get(B2_AUTH_URL, auth=(B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY))
-        auth_response.raise_for_status()
-        
-        auth_data = auth_response.json()
-        B2_DOWNLOAD_URL = auth_data['downloadUrl']
-        return auth_data['authorizationToken']
-    except Exception as e:
-        print(f"Ошибка при авторизации в Backblaze B2: {str(e)}")
-        raise
 
 # Маршрут для скачивания архива
 @app.route('/download_archive', methods=['GET'])
@@ -69,74 +55,102 @@ def download_archive():
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
+def get_b2_auth_data():
+    try:
+        auth_url = f"{B2_API_URL}/b2_authorize_account"
+        response = requests.get(auth_url, auth=(B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY))
+        response.raise_for_status()
+        
+        data = response.json()
+        authorization_token = data['authorizationToken']
+        download_url = data['downloadUrl']
+        
+        # Получаем ID ведра
+        bucket_info = requests.get(
+            f"{B2_API_URL}/b2_list_buckets",
+            headers={"Authorization": authorization_token},
+            params={"accountId": data["accountId"]}
+        )
+        bucket_info.raise_for_status()
+        
+        # Ищем ID ведра по имени
+        bucket_id = next(
+            (bucket["bucketId"] for bucket in bucket_info.json()["buckets"] if bucket["bucketName"] == B2_BUCKET_NAME),
+            None
+        )
+        
+        if not bucket_id:
+            raise Exception("Bucket ID не найден для ведра с указанным именем.")
+        
+        return authorization_token, bucket_id, download_url
+    
+    except Exception as e:
+        print(f"Ошибка при аутентификации в Backblaze B2: {str(e)}")
+        return None, None, None
+
 # Функция для скачивания файла с Backblaze B2
 def download_from_backblaze(file_path, local_path):
     try:
-        auth_token = get_b2_auth_data()
-        download_url = f"{B2_DOWNLOAD_URL}/file/{B2_BUCKET_ID}/{file_path}"
-        
-        headers = {
-            "Authorization": auth_token
-        }
-        response = requests.get(download_url, headers=headers, timeout=60)
+        auth_token, _, download_url = get_b2_auth_data()
+        if not auth_token:
+            print("Не удалось получить авторизационный токен.")
+            return False
 
-        # Логирование статуса ответа
-        print(f"Response от Backblaze B2: {response.status_code}")
+        download_url = f"{download_url}/file/{B2_BUCKET_NAME}/{file_path}"
+        headers = {"Authorization": auth_token}
         
+        response = requests.get(download_url, headers=headers, timeout=60)
         if response.status_code == 200:
-            # Сохраняем содержимое файла на диск
             with open(local_path, "wb") as f:
                 f.write(response.content)
             return True
         else:
             print(f"Ошибка при скачивании из Backblaze B2: {response.status_code} - {response.content.decode()}")
             return False
+
     except Exception as e:
         print(f"Ошибка при скачивании из Backblaze B2: {str(e)}")
         return False
 
-# Функция для удаления файла на Backblaze B2
+# Функция для удаления файла с Backblaze B2
 def delete_from_backblaze(file_path):
     try:
-        auth_token = get_b2_auth_data()
-        delete_url = f"{B2_API_URL}/b2api/v2/delete_file_version"
-        
-        # Формируем данные для удаления
+        auth_token, bucket_id, _ = get_b2_auth_data()
+        if not auth_token or not bucket_id:
+            print("Не удалось получить авторизационный токен или bucket ID.")
+            return False
+
+        delete_url = f"{B2_API_URL}/b2_delete_file_version"
         data = {
             "fileName": file_path,
-            "bucketId": B2_BUCKET_ID
+            "fileId": f"{bucket_id}/{file_path}"
         }
-        
         headers = {
             "Authorization": auth_token,
             "Content-Type": "application/json"
         }
-
-        # Отправляем запрос на удаление
+        
         response = requests.post(delete_url, json=data, headers=headers, timeout=60)
-
-        print(f"Попытка удалить файл с именем: {file_path}")  # Логирование
         if response.status_code == 200:
             print(f"Файл {file_path} удален успешно.")
             return True
         else:
             print(f"Ошибка при удалении файла с Backblaze B2: {response.status_code} - {response.content.decode()}")
             return False
+
     except Exception as e:
         print(f"Ошибка при удалении файла с Backblaze B2: {str(e)}")
         return False
 
-
+# Flask endpoint для удаления файла
 @app.route('/delete_file', methods=['POST'])
 def delete_file():
     file_path = request.json.get("file_path")
     if not file_path:
         return jsonify({"error": "File path is required"}), 400
 
-    # Указание полного пути к файлу
+    # Удаляем локальный файл, если он существует
     full_path = os.path.join("path/to/files", file_path)
-
-    # Проверка, существует ли файл локально
     if os.path.exists(full_path):
         try:
             os.remove(full_path)
@@ -145,8 +159,8 @@ def delete_file():
             print(f"Ошибка при удалении локального файла: {str(e)}")
             return jsonify({"error": "Failed to delete local file"}), 500
     
-    # Попробуйте удалить файл из Backblaze B2
-    if not delete_from_backblaze(file_path):  # здесь передайте имя файла
+    # Удаляем файл на Backblaze B2
+    if not delete_from_backblaze(file_path):
         return jsonify({"error": "Failed to delete file from Backblaze B2"}), 500
 
     return jsonify({"status": "File deleted"}), 200
