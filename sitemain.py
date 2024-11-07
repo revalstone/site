@@ -18,6 +18,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла 500 MB
 
+CACHE_LIFETIME = 60 * 60 * 24  # 24 часа
+
 @app.route('/')
 def index():
     return "Welcome to Revalstone!"
@@ -77,26 +79,21 @@ def download_archive():
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
-@app.route('/download_episodes_list', methods=['GET'])
 def download_episodes_list():
     try:
         file_name = "episodes_list.rpy"
         file_path = f"episode_files/{file_name}"
 
-        # Путь для скачивания из Backblaze
+        # Путь для локального хранения на сервере Render
         local_file_path = os.path.join(UPLOAD_FOLDER, file_name)
 
-        # Проверяем, существует ли файл
-        if not os.path.exists(local_file_path):
-            print(f"Файл {file_name} не найден локально, пытаемся скачать из Backblaze B2...")
+        # Проверяем, существует ли файл локально и не устарел ли он
+        if not is_file_cached(local_file_path):
+            print(f"Файл {file_name} не найден или устарел, пытаемся скачать из Backblaze B2...")
             
-            # Скачиваем файл, если его нет локально
+            # Скачиваем файл, если его нет локально или он устарел
             if not download_from_backblaze(file_path, local_file_path):
                 return jsonify({"error": "Файл не найден на сервере и не удалось скачать с Backblaze B2"}), 404
-
-        # Проверяем, существует ли файл после скачивания
-        if not os.path.exists(local_file_path):
-            return jsonify({"error": "Файл не найден после загрузки"}), 404
 
         # Отправляем файл клиенту
         return send_file(local_file_path, as_attachment=True)
@@ -104,6 +101,17 @@ def download_episodes_list():
     except Exception as e:
         print(f"Ошибка при обработке запроса /download_episodes_list: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
+def is_file_cached(file_path):
+    """Проверка, кэширован ли файл и не истек ли срок его действия"""
+    if os.path.exists(file_path):
+        # Проверяем время последнего изменения файла
+        file_age = time.time() - os.path.getmtime(file_path)
+        if file_age < CACHE_LIFETIME:
+            # Если файл недавно обновлялся, считаем его кэшированным
+            return True
+    return False
+
 
 
 # Функция для скачивания файла с Backblaze B2
