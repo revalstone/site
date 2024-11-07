@@ -79,6 +79,7 @@ def download_archive():
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
+@app.route('/download_episodes_list', methods=['GET'])
 def download_episodes_list():
     try:
         file_name = "episodes_list.rpy"
