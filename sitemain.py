@@ -143,4 +143,6 @@ def download_from_backblaze(file_path, local_path):
 
 # Запуск сервера
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Получаем порт из переменной окружения PORT
+    port = int(os.environ.get("PORT", 5000))  # если переменная не установлена, используем порт 5000
+    app.run(debug=True, host='0.0.0.0', port=port)
