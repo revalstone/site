@@ -77,6 +77,34 @@ def download_archive():
         print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
+@app.route('/download_episodes_list', methods=['GET'])
+def download_episodes_list():
+    try:
+        file_name = "episodes_list.rpy"
+        file_path = f"episode_files/{file_name}"
+
+        # Путь для скачивания из Backblaze
+        local_file_path = os.path.join(UPLOAD_FOLDER, file_name)
+
+        # Проверяем, существует ли файл
+        if not os.path.exists(local_file_path):
+            print(f"Файл {file_name} не найден локально, пытаемся скачать из Backblaze B2...")
+            
+            # Скачиваем файл, если его нет локально
+            if not download_from_backblaze(file_path, local_file_path):
+                return jsonify({"error": "Файл не найден на сервере и не удалось скачать с Backblaze B2"}), 404
+
+        # Проверяем, существует ли файл после скачивания
+        if not os.path.exists(local_file_path):
+            return jsonify({"error": "Файл не найден после загрузки"}), 404
+
+        # Отправляем файл клиенту
+        return send_file(local_file_path, as_attachment=True)
+
+    except Exception as e:
+        print(f"Ошибка при обработке запроса /download_episodes_list: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
 
 # Функция для скачивания файла с Backblaze B2
 def download_from_backblaze(file_path, local_path):
