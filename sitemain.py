@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
@@ -112,8 +113,6 @@ def is_file_cached(file_path):
             # Если файл недавно обновлялся, считаем его кэшированным
             return True
     return False
-
-
 
 # Функция для скачивания файла с Backblaze B2
 def download_from_backblaze(file_path, local_path):
