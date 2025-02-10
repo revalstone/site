@@ -1,7 +1,7 @@
 import os
 import requests
 import time
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, redirect
 from io import BytesIO
 
 app = Flask(__name__)
@@ -36,6 +36,36 @@ def get_b2_auth_data():
         print(f"Ошибка при авторизации в Backblaze B2: {str(e)}")
         raise
 
+# Функция для получения временной (signed) ссылки
+def get_file_signed_url(file_path, valid_duration=3600):
+    """
+    Генерирует временную (signed) ссылку для скачивания файла с Backblaze B2.
+    file_path – путь к файлу внутри бакета.
+    valid_duration – время действия ссылки в секундах (по умолчанию 1 час).
+    """
+    try:
+        # Получаем токен авторизации и downloadUrl (если требуется обновление)
+        token = get_b2_auth_data()
+        headers = {"Authorization": token}
+        data = {
+            "bucketId": BUCKET_ID,
+            "fileNamePrefix": file_path,
+            "validDurationInSeconds": valid_duration
+        }
+        response = requests.post(
+            "https://api.backblazeb2.com/b2api/v2/b2_get_download_authorization",
+            headers=headers, json=data
+        )
+        response.raise_for_status()
+        auth_data = response.json()
+        # Формируем signed URL:
+        # Формат: {downloadUrl}/file/{bucketName}/{file_path}?Authorization={downloadAuthToken}
+        signed_url = f"{B2_DOWNLOAD_URL}/file/{B2_BUCKET_NAME}/{file_path}?Authorization={auth_data['authorizationToken']}"
+        return signed_url
+    except Exception as e:
+        print(f"Ошибка при генерации signed URL для {file_path}: {str(e)}")
+        return None
+
 # Функция скачивания файла в память (не сохраняем на диск)
 def download_from_backblaze(file_path):
     try:
@@ -64,34 +94,33 @@ def download_archive():
         if not season_number or not episode_number:
             return jsonify({"error": "Не указаны параметры season_number или episode_number"}), 400
 
+        # Путь к файлу в бакете
         file_path = f"archives/season_{season_number}_episode_{episode_number}.zip"
-        file_data = download_from_backblaze(file_path)
+        # Получаем временную ссылку
+        signed_url = get_file_signed_url(file_path)
+        if not signed_url:
+            return jsonify({"error": "Не удалось получить ссылку для скачивания"}), 500
 
-        if file_data is None:
-            return jsonify({"error": "Не удалось скачать файл"}), 500
-
-        return send_file(file_data, mimetype="application/zip", as_attachment=True, download_name=f"season_{season_number}_episode_{episode_number}.zip")
-
+        # Перенаправляем пользователя на signed URL
+        return redirect(signed_url)
     except Exception as e:
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
 
 # Маршрут для скачивания списка эпизодов (Render + Vercel)
 @app.route('/download_episodes_list', methods=['GET'])
 def download_episodes_list():
     try:
         season_number = request.args.get('season_number')
-
         if not season_number:
             return jsonify({"error": "Не указан параметр season_number"}), 400
 
         file_path = f"episodes_list/season_{season_number}.json"
-        file_data = download_from_backblaze(file_path)
+        signed_url = get_file_signed_url(file_path)
+        if not signed_url:
+            return jsonify({"error": "Не удалось получить ссылку для скачивания"}), 500
 
-        if file_data is None:
-            return jsonify({"error": "Не удалось скачать файл"}), 500
-
-        return send_file(file_data, mimetype="application/json", as_attachment=True, download_name=f"season_{season_number}.json")
-
+        return redirect(signed_url)
     except Exception as e:
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
