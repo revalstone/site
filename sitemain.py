@@ -126,6 +126,9 @@ def download_episodes_list():
         return redirect(signed_url)
     except Exception as e:
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
+token = get_b2_auth_data()
+print("AUTH TOKEN:", token)
 print("B2_ACCOUNT_ID:", B2_ACCOUNT_ID)
 print("B2_APPLICATION_KEY_ID:", B2_APPLICATION_KEY_ID)
 print("B2_APPLICATION_KEY:", B2_APPLICATION_KEY)
