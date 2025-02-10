@@ -6,7 +6,7 @@ from io import BytesIO
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
-load_dotenv()
+load_dotenv(override=True)
 
 app = Flask(__name__)
 
