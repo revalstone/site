@@ -10,11 +10,11 @@ load_dotenv()
 
 app = Flask(__name__)
 # Токены и ключи для Backblaze B2
-B2_ACCOUNT_ID = os.getenv('B2_ACCOUNT_ID')
-BUCKET_ID = os.getenv('BUCKET_ID')  # ID
-B2_APPLICATION_KEY_ID = os.getenv('B2_APPLICATION_KEY_ID')  # keyID
-B2_APPLICATION_KEY = os.getenv('B2_APPLICATION_KEY')  # applicationKey
-B2_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')  # Имя bucket
+B2_ACCOUNT_ID = 'e902e40d0449'
+BUCKET_ID = '2ee970b25e84c05d90240419'  # ID
+B2_APPLICATION_KEY_ID = '005e902e40d04490000000001'  # keyID
+B2_APPLICATION_KEY = 'K005LC5NiXBqf0HbQLts9m8U+yHJSKo'  # applicationKey
+B2_BUCKET_NAME = 'Revalstone'  # Имя bucket
 
 B2_AUTH_URL = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
 B2_DOWNLOAD_URL = None
