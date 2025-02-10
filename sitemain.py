@@ -98,7 +98,7 @@ def download_archive():
             return jsonify({"error": "Не указаны параметры season_number или episode_number"}), 400
 
         # Путь к файлу в бакете
-        file_path = f"archives/season_{season_number}_episode_{episode_number}.zip"
+        file_path = f"{B2_BUCKET_NAME}/episode_files/{season_number}/{episode_number}/{season_number}_{episode_number}.zip"
         # Получаем временную ссылку
         signed_url = get_file_signed_url(file_path)
         if not signed_url:
@@ -118,7 +118,7 @@ def download_episodes_list():
         if not season_number:
             return jsonify({"error": "Не указан параметр season_number"}), 400
 
-        file_path = f"episodes_list/season_{season_number}.json"
+        file_path = f"{B2_BUCKET_NAME}/episode_files/episodes_list.rpy"
         signed_url = get_file_signed_url(file_path)
         if not signed_url:
             return jsonify({"error": "Не удалось получить ссылку для скачивания"}), 500
@@ -126,6 +126,7 @@ def download_episodes_list():
         return redirect(signed_url)
     except Exception as e:
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
 
 token = get_b2_auth_data()
 print("AUTH TOKEN:", token)
