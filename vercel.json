@@ -11,5 +11,9 @@
       "src": "/(.*)",
       "dest": "sitemain.py"
     }
-  ]
+  ],
+  "buildCommand": "pip install -r requirements.txt",
+  "env": {
+    "PYTHON_VERSION": "3.9"
+  }
 }
