@@ -17,7 +17,7 @@ B2_APPLICATION_KEY = os.getenv('B2_APPLICATION_KEY')  # applicationKey
 B2_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')  # Имя bucket
 
 B2_AUTH_URL = "https://api.backblazeb2.com/b2api/v2/b2_authorize_account"
-B2_DOWNLOAD_URL = "https://f005.backblazeb2.com"
+B2_DOWNLOAD_URL = None
 
 CACHE_LIFETIME = 60 * 60 * 24  # 24 часа
 
@@ -31,13 +31,12 @@ def get_b2_auth_data():
     try:
         auth_response = requests.get(B2_AUTH_URL, auth=(B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY))
         auth_response.raise_for_status()
-        
         auth_data = auth_response.json()
         B2_DOWNLOAD_URL = auth_data['downloadUrl']
         return auth_data['authorizationToken']
     except Exception as e:
         print(f"Ошибка при авторизации в Backblaze B2: {str(e)}")
-        raise
+        return None
 
 # Функция для получения временной (signed) ссылки
 def get_file_signed_url(file_path, valid_duration=3600):
@@ -129,11 +128,7 @@ def download_episodes_list():
 
 
 token = get_b2_auth_data()
-print("AUTH TOKEN:", token)
-print("B2_ACCOUNT_ID:", B2_ACCOUNT_ID)
-print("B2_APPLICATION_KEY_ID:", B2_APPLICATION_KEY_ID)
-print("B2_APPLICATION_KEY:", B2_APPLICATION_KEY)
-print("B2_BUCKET_NAME:", B2_BUCKET_NAME)
+
 
 # Запуск сервера
 if __name__ == '__main__':
