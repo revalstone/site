@@ -75,7 +75,7 @@ def download_archive():
     episode = request.args.get('episode_number')
     if not season or not episode:
         return jsonify({"error": "Не указаны параметры season_number или episode_number"}), 400
-    file_path = f"episode_files/{season}/{episode}/{season}_{episode}.zip"
+    file_path = f"episode_files/{season_number}/{episode_number}/{episode_number}_{season_number}.zip"
     signed_url = get_file_signed_url(file_path)
     if not signed_url:
         return jsonify({"error": "Не удалось получить ссылку"}), 500
