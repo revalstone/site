@@ -73,8 +73,8 @@ def get_file_signed_url(file_path, valid_duration=3600):
 def download_archive():
     season = request.args.get('season_number')
     episode = request.args.get('episode_number')
-
     archive_name = f"e{episode}s{season}.zip"
+    
     if not season or not episode:
         return jsonify({"error": "Не указаны параметры season_number или episode_number"}), 400
     file_path = f"episode_files/{season}/{episode}/{archive_name}.zip"
