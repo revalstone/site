@@ -126,6 +126,10 @@ def download_episodes_list():
         return redirect(signed_url)
     except Exception as e:
         return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+print("B2_ACCOUNT_ID:", B2_ACCOUNT_ID)
+print("B2_APPLICATION_KEY_ID:", B2_APPLICATION_KEY_ID)
+print("B2_APPLICATION_KEY:", B2_APPLICATION_KEY)
+print("B2_BUCKET_NAME:", B2_BUCKET_NAME)
 
 # Запуск сервера
 if __name__ == '__main__':
