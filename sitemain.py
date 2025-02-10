@@ -39,97 +39,23 @@ def get_b2_auth_data():
         print(f"Ошибка при авторизации в Backblaze B2: {str(e)}")
         raise
 
-# Маршрут для скачивания архива
-@app.route('/download_archive', methods=['GET'])
-def download_archive():
-    try:
-        season_number = request.args.get('season_number')
-        episode_number = request.args.get('episode_number')
-
-        if not season_number or not episode_number:
-            return jsonify({"error": "Необходимо указать номера сезона и эпизода"}), 400
-
-        # Создаем имя архива
-        archive_name = f"e{episode_number}s{season_number}.zip"
-        
-        # Формируем путь к архиву с учетом структуры папок
-        archive_path = os.path.join(UPLOAD_FOLDER, season_number, episode_number)
-        os.makedirs(archive_path, exist_ok=True)  # Создаем папку, если она не существует
-        archive_file_path = os.path.join(archive_path, archive_name)
-
-        print(f"Проверка архива: {archive_file_path}")
-
-        # Проверяем, существует ли архив
-        if not os.path.exists(archive_file_path):
-            # Путь к файлу на Backblaze B2 с учетом новой структуры папок
-            b2_file_path = f"episode_files/{season_number}/{episode_number}/{archive_name}"
-            print(f"Попытка скачать архив с Backblaze B2 по пути: {b2_file_path}")
-
-            # Скачиваем архив, если он не найден локально
-            if not download_from_backblaze(b2_file_path, archive_file_path):
-                return jsonify({"error": "Архив не найден на сервере и не удалось скачать с Backblaze B2"}), 404
-
-        # Проверяем, существует ли архив после загрузки
-        if not os.path.exists(archive_file_path):
-            return jsonify({"error": "Файл не найден после загрузки"}), 404
-
-        # Отправляем файл клиенту
-        return send_file(archive_file_path, as_attachment=True)
-
-    except Exception as e:
-        print(f"Ошибка при обработке запроса /download_archive: {str(e)}")
-        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
-
-@app.route('/download_episodes_list', methods=['GET'])
-def download_episodes_list():
-    try:
-        file_name = "episodes_list.rpy"
-        file_path = f"episode_files/{file_name}"
-
-        # Путь для локального хранения на сервере Render
-        local_file_path = os.path.join(UPLOAD_FOLDER, file_name)
-
-        # Проверяем, существует ли файл локально и не устарел ли он
-        if not is_file_cached(local_file_path):
-            print(f"Файл {file_name} не найден или устарел, пытаемся скачать из Backblaze B2...")
-            
-            # Скачиваем файл, если его нет локально или он устарел
-            if not download_from_backblaze(file_path, local_file_path):
-                return jsonify({"error": "Файл не найден на сервере и не удалось скачать с Backblaze B2"}), 404
-
-        # Отправляем файл клиенту
-        return send_file(local_file_path, as_attachment=True)
-
-    except Exception as e:
-        print(f"Ошибка при обработке запроса /download_episodes_list: {str(e)}")
-        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
-
+# Функция проверки кэша
 def is_file_cached(file_path):
-    """Проверка, кэширован ли файл и не истек ли срок его действия"""
-    if os.path.exists(file_path):
-        # Проверяем время последнего изменения файла
-        file_age = time.time() - os.path.getmtime(file_path)
-        if file_age < CACHE_LIFETIME:
-            # Если файл недавно обновлялся, считаем его кэшированным
-            return True
-    return False
+    local_path = os.path.join(UPLOAD_FOLDER, file_path)
+    return os.path.exists(local_path) and time.time() - os.path.getmtime(local_path) < CACHE_LIFETIME
 
-# Функция для скачивания файла с Backblaze B2
+# Функция скачивания файлов с Backblaze B2
 def download_from_backblaze(file_path, local_path):
     try:
         auth_token = get_b2_auth_data()
         download_url = f"{B2_DOWNLOAD_URL}/file/{B2_BUCKET_NAME}/{file_path}"
         
-        headers = {
-            "Authorization": auth_token
-        }
+        headers = {"Authorization": auth_token}
         response = requests.get(download_url, headers=headers, timeout=60)
 
-        # Логирование статуса ответа
         print(f"Response от Backblaze B2: {response.status_code}")
         
         if response.status_code == 200:
-            # Сохраняем содержимое файла на диск
             with open(local_path, "wb") as f:
                 f.write(response.content)
             return True
@@ -140,9 +66,50 @@ def download_from_backblaze(file_path, local_path):
         print(f"Ошибка при скачивании из Backblaze B2: {str(e)}")
         return False
 
+# Маршрут для скачивания архива (Render + Vercel)
+@app.route('/download_archive', methods=['GET'])
+def download_archive():
+    try:
+        season_number = request.args.get('season_number')
+        episode_number = request.args.get('episode_number')
+
+        if not season_number or not episode_number:
+            return jsonify({"error": "Не указаны параметры season_number или episode_number"}), 400
+
+        file_path = f"archives/season_{season_number}_episode_{episode_number}.zip"
+        local_path = os.path.join(UPLOAD_FOLDER, file_path)
+
+        if not is_file_cached(file_path):
+            if not download_from_backblaze(file_path, local_path):
+                return jsonify({"error": "Не удалось скачать файл"}), 500
+
+        return send_file(local_path, as_attachment=True)
+
+    except Exception as e:
+        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
+
+# Маршрут для скачивания списка эпизодов (Render + Vercel)
+@app.route('/download_episodes_list', methods=['GET'])
+def download_episodes_list():
+    try:
+        season_number = request.args.get('season_number')
+
+        if not season_number:
+            return jsonify({"error": "Не указан параметр season_number"}), 400
+
+        file_path = f"episodes_list/season_{season_number}.json"
+        local_path = os.path.join(UPLOAD_FOLDER, file_path)
+
+        if not is_file_cached(file_path):
+            if not download_from_backblaze(file_path, local_path):
+                return jsonify({"error": "Не удалось скачать файл"}), 500
+
+        return send_file(local_path, as_attachment=True)
+
+    except Exception as e:
+        return jsonify({"error": "Внутренняя ошибка сервера", "details": str(e)}), 500
 
 # Запуск сервера
 if __name__ == '__main__':
-    # Получаем порт из переменной окружения PORT
-    port = int(os.environ.get("PORT", 5000))  # если переменная не установлена, используем порт 5000
+    port = int(os.environ.get("PORT", 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
