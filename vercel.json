@@ -1,9 +1,26 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "sitemain.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/download_archive",
+      "dest": "sitemain.py"
+    }
+  ],
   "redirects": [
     {
       "source": "/download_archive",
       "destination": "https://revalstone-git-main-esmes-projects-bf858041.vercel.app/download_archive",
       "permanent": false
     }
-  ]
+  ],
+  "buildCommand": "pip install -r requirements.txt",
+  "env": {
+    "PYTHON_VERSION": "3.9"
+  }
 }
