@@ -81,6 +81,16 @@ def get_file_signed_url(file_path, valid_duration=3600):
             print(f"Ответ сервера: {response.text}")
         return None
 
+@app.route('/download_episodes_list', methods=['GET'])
+def download_episodes_list():
+    file_name = "episodes_list.rpy"
+    file_path = f"episode_files/{file_name}"
+    signed_url = get_file_signed_url(file_path)
+    if not signed_url:
+        return jsonify({"error": "Не удалось получить ссылку"}), 500
+    
+    return redirect(signed_url)
+
 @app.route('/download_archive', methods=['GET'])
 def download_archive():
     """Маршрут для скачивания архива"""
