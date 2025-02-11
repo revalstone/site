@@ -97,7 +97,7 @@ def download_episodes_list():
         print("⚡ Используем кэшированную ссылку для episodes_list.rpy")
         return redirect(episodes_list_cache["url"])
 
-    file_name = "episodes_list.rpy"
+    file_name = "episodes_list.rpyc"
     file_path = f"episode_files/{file_name}"
     
     signed_url = get_file_signed_url(file_path, valid_duration=86400)  # Срок действия 24 часа
