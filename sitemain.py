@@ -25,7 +25,13 @@ auth_cache = {
     "download_url": None,
     "expires_at": 0  # Время истечения токена
 }
+# Кэш файла эпизодов
+episodes_list_cache = {
+    "url": None,
+    "expires_at": 0  # Время истечения кэша
+}
 CACHE_LIFETIME = 60 * 60 * 24  # 24 часа
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Максимальный размер файла 500 MB
 
 def authorize_b2():
     """Авторизуется в Backblaze B2 и кэширует токен"""
@@ -49,7 +55,7 @@ def authorize_b2():
             print(f"Ответ сервера: {response.text}")
         return None, None, None
 
-def get_file_signed_url(file_path, valid_duration=3600):
+def get_file_signed_url(file_path, valid_duration=86400):
     """Генерирует временную ссылку на файл"""
     token, api_url, download_url = authorize_b2()
     if not token:
@@ -83,13 +89,28 @@ def get_file_signed_url(file_path, valid_duration=3600):
 
 @app.route('/download_episodes_list', methods=['GET'])
 def download_episodes_list():
+    global episodes_list_cache
+    current_time = time.time()
+
+    # Проверяем, есть ли актуальный кэш
+    if episodes_list_cache["url"] and current_time < episodes_list_cache["expires_at"]:
+        print("⚡ Используем кэшированную ссылку для episodes_list.rpy")
+        return redirect(episodes_list_cache["url"])
+
     file_name = "episodes_list.rpy"
     file_path = f"episode_files/{file_name}"
-    signed_url = get_file_signed_url(file_path)
+    
+    signed_url = get_file_signed_url(file_path, valid_duration=86400)  # Срок действия 24 часа
     if not signed_url:
         return jsonify({"error": "Не удалось получить ссылку"}), 500
-    
+
+    # Кэшируем ссылку
+    episodes_list_cache["url"] = signed_url
+    episodes_list_cache["expires_at"] = current_time + 86400  # Действительна 24 часа
+
+    print("✅ Получена новая подписанная ссылка для episodes_list.rpy (на 24 часа)")
     return redirect(signed_url)
+
 
 @app.route('/download_archive', methods=['GET'])
 def download_archive():
