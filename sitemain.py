@@ -94,7 +94,7 @@ def download_episodes_list():
 
     # Проверяем, есть ли актуальный кэш
     if episodes_list_cache["url"] and current_time < episodes_list_cache["expires_at"]:
-        print("⚡ Используем кэшированную ссылку для episodes_list.rpy")
+        print("⚡ Используем кэшированную ссылку для episodes_list")
         return redirect(episodes_list_cache["url"])
 
     file_name = "episodes_list.json"
@@ -108,7 +108,7 @@ def download_episodes_list():
     episodes_list_cache["url"] = signed_url
     episodes_list_cache["expires_at"] = current_time + 86400  # Действительна 24 часа
 
-    print("✅ Получена новая подписанная ссылка для episodes_list.rpy (на 24 часа)")
+    print("✅ Получена новая подписанная ссылка для episodes_list (на 24 часа)")
     return redirect(signed_url)
 
 
